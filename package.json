@@ -1,6 +1,7 @@
 {
   "name": "engineering-orchestrator",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "engines": { "node": ">=24" },
   "workspaces": ["packages/*"],

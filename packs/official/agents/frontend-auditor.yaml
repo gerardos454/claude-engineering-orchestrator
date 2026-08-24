@@ -1,0 +1,13 @@
+id: frontend-auditor
+role: auditor
+produces:
+  - findings
+  - verdict
+  - frontend-risk-evidence
+reviewed_by:
+  - principal-engineering-auditor
+requires:
+  tools: [Read, Grep, Glob, Bash]
+  capabilities: [frontend, principal-review]
+risk:
+  forbidden: [file-modification, self-approval]

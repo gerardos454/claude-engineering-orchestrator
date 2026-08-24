@@ -1,0 +1,13 @@
+id: devops-auditor
+role: auditor
+produces:
+  - findings
+  - verdict
+  - operational-risk-evidence
+reviewed_by:
+  - principal-engineering-auditor
+requires:
+  tools: [Read, Grep, Glob, Bash]
+  capabilities: [devops, principal-review]
+risk:
+  forbidden: [file-modification, self-approval]

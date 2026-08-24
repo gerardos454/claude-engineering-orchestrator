@@ -2,6 +2,7 @@
   "name": "@engineer/cli",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "bin": { "engineer": "./dist/bin.js" },
   "files": ["dist"],

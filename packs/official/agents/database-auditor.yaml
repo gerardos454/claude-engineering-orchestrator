@@ -1,0 +1,13 @@
+id: database-auditor
+role: auditor
+produces:
+  - findings
+  - verdict
+  - data-integrity-evidence
+reviewed_by:
+  - principal-engineering-auditor
+requires:
+  tools: [Read, Grep, Glob, Bash]
+  capabilities: [database, principal-review]
+risk:
+  forbidden: [file-modification, self-approval]

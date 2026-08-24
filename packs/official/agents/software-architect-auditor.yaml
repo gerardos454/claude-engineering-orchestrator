@@ -1,0 +1,13 @@
+id: software-architect-auditor
+role: auditor
+produces:
+  - findings
+  - verdict
+  - architecture-risk-evidence
+reviewed_by:
+  - principal-engineering-auditor
+requires:
+  tools: [Read, Grep, Glob, Bash]
+  capabilities: [architecture, principal-review]
+risk:
+  forbidden: [file-modification, self-approval]

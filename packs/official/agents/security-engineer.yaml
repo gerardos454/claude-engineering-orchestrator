@@ -1,0 +1,13 @@
+id: security-engineer
+role: builder
+produces:
+  - patch
+  - threat-control-evidence
+  - security-test-results
+reviewed_by:
+  - security-auditor
+requires:
+  tools: [Read, Grep, Glob, Edit, Write, Bash]
+  capabilities: [security, orchestration, principal-review]
+risk:
+  forbidden: [self-approval, secret-exposure, authorization-bypass]

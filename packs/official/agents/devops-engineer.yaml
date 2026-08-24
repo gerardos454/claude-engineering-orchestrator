@@ -1,0 +1,13 @@
+id: devops-engineer
+role: builder
+produces:
+  - patch
+  - deployment-rollback-evidence
+  - reliability-check-results
+reviewed_by:
+  - devops-auditor
+requires:
+  tools: [Read, Grep, Glob, Edit, Write, Bash]
+  capabilities: [devops, orchestration]
+risk:
+  forbidden: [self-approval, unapproved-production-deploy, secret-exposure]

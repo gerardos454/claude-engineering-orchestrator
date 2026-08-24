@@ -1,0 +1,13 @@
+id: ui-ux-engineer
+role: builder
+produces:
+  - patch
+  - ux-rationale
+  - accessibility-evidence
+reviewed_by:
+  - ui-ux-auditor
+requires:
+  tools: [Read, Grep, Glob, Edit, Write, Bash]
+  capabilities: [ui-ux, orchestration]
+risk:
+  forbidden: [self-approval, inaccessible-interface]

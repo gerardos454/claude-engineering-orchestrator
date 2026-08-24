@@ -1,0 +1,13 @@
+id: frontend-engineer
+role: builder
+produces:
+  - patch
+  - frontend-test-results
+  - accessibility-evidence
+reviewed_by:
+  - frontend-auditor
+requires:
+  tools: [Read, Grep, Glob, Edit, Write, Bash]
+  capabilities: [frontend, orchestration]
+risk:
+  forbidden: [self-approval, client-side-authorization-bypass]

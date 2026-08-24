@@ -1,0 +1,13 @@
+id: qa-engineer
+role: builder
+produces:
+  - patch
+  - test-results
+  - residual-risk
+reviewed_by:
+  - qa-auditor
+requires:
+  tools: [Read, Grep, Glob, Edit, Write, Bash]
+  capabilities: [qa, orchestration]
+risk:
+  forbidden: [self-approval, false-positive-test]

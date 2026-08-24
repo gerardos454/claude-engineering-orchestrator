@@ -1,0 +1,13 @@
+id: backend-engineer
+role: builder
+produces:
+  - patch
+  - backend-test-results
+  - api-contract-evidence
+reviewed_by:
+  - backend-auditor
+requires:
+  tools: [Read, Grep, Glob, Edit, Write, Bash]
+  capabilities: [backend, orchestration]
+risk:
+  forbidden: [self-approval, cross-tenant-data-access]

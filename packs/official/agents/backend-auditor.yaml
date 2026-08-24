@@ -1,0 +1,13 @@
+id: backend-auditor
+role: auditor
+produces:
+  - findings
+  - verdict
+  - backend-risk-evidence
+reviewed_by:
+  - principal-engineering-auditor
+requires:
+  tools: [Read, Grep, Glob, Bash]
+  capabilities: [backend, principal-review]
+risk:
+  forbidden: [file-modification, self-approval]

@@ -1,0 +1,14 @@
+id: software-architect
+role: builder
+produces:
+  - patch
+  - architecture-decisions
+  - migration-rollback-analysis
+  - validation-evidence
+reviewed_by:
+  - software-architect-auditor
+requires:
+  tools: [Read, Grep, Glob, Edit, Write, Bash]
+  capabilities: [architecture, orchestration, principal-review]
+risk:
+  forbidden: [self-approval, unreviewed-cross-cutting-change]

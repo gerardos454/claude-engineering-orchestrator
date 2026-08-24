@@ -1,0 +1,13 @@
+id: database-engineer
+role: builder
+produces:
+  - patch
+  - schema-query-evidence
+  - migration-rollback-analysis
+reviewed_by:
+  - database-auditor
+requires:
+  tools: [Read, Grep, Glob, Edit, Write, Bash]
+  capabilities: [database, orchestration]
+risk:
+  forbidden: [self-approval, unreviewed-destructive-migration]
