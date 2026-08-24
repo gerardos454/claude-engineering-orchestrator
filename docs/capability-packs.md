@@ -106,6 +106,12 @@ hyphens. Versions are three numeric components. Descriptor paths must be
 relative YAML paths inside the pack root: no absolute paths, drive paths,
 backslashes, or parent-directory traversal.
 
+Registry map values follow the opposite rule. `resolvePacks` accepts a map
+from pack ID to a registry location; each map value must be an absolute path
+inside the configured registry root. The resolver first rejects a value that
+lexically lies outside that root, resolves its canonical path, then rejects it
+again if a symlink or other canonical resolution escapes the registry root.
+
 ## Agent descriptors, roles, and activation
 
 Each listed descriptor must contain every field shown below. This is the
@@ -149,11 +155,15 @@ policy.
 
 ## Validator behavior and diagnostics
 
-`engineer pack validate` loads `pack.yaml`, validates the manifest and every
-listed descriptor against `schemas/pack.schema.json`, canonicalizes filesystem
-paths, and collects descriptor diagnostics before reporting them. A malformed
-manifest stops validation before descriptor loading. The command makes no model
-calls and needs no network access.
+`engineer pack validate` loads `pack.yaml`, validates the manifest and listed
+descriptors against `schemas/pack.schema.json`, and canonicalizes filesystem
+paths. A malformed manifest stops validation before descriptor loading.
+Descriptors are processed in manifest order. An unreadable or malformed
+descriptor stops loading at that point; schema-invalid descriptors can be
+reported while processing continues. Semantic diagnostics such as
+`SELF_REVIEW` and `DUPLICATE_AGENT` are collected only for descriptors that
+were successfully read, parsed, and schema-validated before or during that
+semantic phase. The command makes no model calls and needs no network access.
 
 These are all current diagnostic and resolution codes:
 
@@ -169,10 +179,10 @@ These are all current diagnostic and resolution codes:
 | `USAGE` | CLI JSON error | The command shape is unsupported or incomplete. |
 
 CLI exit codes are `0` for success, `2` for usage errors, `3` for pack
-validation errors, and `4` for an unsupported Node environment reported by
-`engineer doctor`. Resolver codes are returned by the core API, not by the
-current `pack validate` command. `doctor` reports named checks rather than a
-separate diagnostic code.
+validation errors, and `4` when `engineer doctor` finds either an unsupported
+Node environment or an unreadable working directory. Resolver codes are
+returned by the core API, not by the current `pack validate` command. `doctor`
+reports named checks rather than a separate diagnostic code.
 
 ## Dependencies and lock behavior
 
@@ -189,10 +199,10 @@ and returns an in-memory lock:
 }
 ```
 
-The current foundation does not write a lockfile and the CLI does not yet
-resolve a registry. A future caller that persists the returned lock must treat
-the `id`, exact `version`, and `source` entries as the reproducible resolved
-set, rather than re-resolving without checking it.
+This result is only a deterministic in-memory summary of each resolved pack's
+ID, version, and `local` source. The current foundation does not write or read
+a lockfile, does not content-address packs, and the summary is not sufficient
+to reproduce an installation. The CLI does not yet resolve a registry.
 
 ## Contributor checks
 
