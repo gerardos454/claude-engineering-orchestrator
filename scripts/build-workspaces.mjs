@@ -1,7 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const scriptPath = fileURLToPath(import.meta.url);
+const workspaceRoot = resolve(dirname(scriptPath), "..");
 const buildOrder = [
   "@engineer/pack-sdk",
   "@engineer/core",
@@ -21,7 +23,10 @@ export function npmBuildInvocation(workspace, env = process.env) {
 
 function buildWorkspace(workspace) {
   const invocation = npmBuildInvocation(workspace);
-  const result = spawnSync(invocation.command, invocation.args, { stdio: "inherit" });
+  const result = spawnSync(invocation.command, invocation.args, {
+    cwd: workspaceRoot,
+    stdio: "inherit",
+  });
   if (result.error) throw result.error;
   if (result.status !== 0) {
     const error = new Error(`workspace build failed: ${workspace}`);
@@ -30,14 +35,18 @@ function buildWorkspace(workspace) {
   }
 }
 
-export function runWorkspaceBuilds(run = buildWorkspace) {
-  for (const workspace of buildOrder) run(workspace);
+export function runWorkspaceBuilds(run = buildWorkspace, workspaces = buildOrder) {
+  for (const workspace of workspaces) run(workspace);
 }
 
 const entrypoint = process.argv[1] === undefined ? undefined : resolve(process.argv[1]);
-if (entrypoint === fileURLToPath(import.meta.url)) {
+if (entrypoint === scriptPath) {
+  const requestedWorkspaces = process.argv.slice(2);
   try {
-    runWorkspaceBuilds();
+    runWorkspaceBuilds(
+      buildWorkspace,
+      requestedWorkspaces.length === 0 ? buildOrder : requestedWorkspaces,
+    );
   } catch (error) {
     if (!(error instanceof Error) || !("exitCode" in error)) console.error(error);
     process.exitCode = error instanceof Error && "exitCode" in error

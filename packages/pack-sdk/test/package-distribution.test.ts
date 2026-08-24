@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rename, rm } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
 import { promisify } from "node:util";
 import { dirname, join } from "node:path";
@@ -56,6 +56,61 @@ async function packedFiles(packageRoot: string, prefix: string): Promise<Map<str
   }
 }
 
+async function withoutWorkspaceBuildOutputs<T>(run: () => Promise<T>): Promise<T> {
+  const holdingRoot = await mkdtemp(join(tmpdir(), "workspace-build-output-backup-with-spaces "));
+  const packageRoots = [sdkRoot, coreRoot];
+  const movedOutputs: Array<{ source: string; backup: string }> = [];
+
+  try {
+    for (const [index, packageRoot] of packageRoots.entries()) {
+      const source = join(packageRoot, "dist");
+      const backup = join(holdingRoot, `dist-${index}`);
+      try {
+        await rename(source, backup);
+        movedOutputs.push({ source, backup });
+      } catch (error) {
+        if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
+      }
+    }
+    return await run();
+  } finally {
+    for (const packageRoot of packageRoots) {
+      await rm(join(packageRoot, "dist"), { recursive: true, force: true });
+    }
+    for (const { source, backup } of movedOutputs) {
+      await rename(backup, source);
+    }
+    await rm(holdingRoot, { recursive: true, force: true });
+  }
+}
+
+test("packed core builds cleanly before the SDK is packed", async () => {
+  // Break caught: direct core packing must not rely on SDK or core output left by an earlier workspace build.
+  const files = await withoutWorkspaceBuildOutputs(
+    () => packedFiles(coreRoot, "core-tarball-with-spaces "),
+  );
+  const packageJson = JSON.parse(files.get("package/package.json")?.toString("utf8") ?? "null") as {
+    private?: boolean;
+    engines?: { node?: string };
+    scripts?: { prepack?: string };
+  };
+  assert.deepEqual(
+    [
+      "package/dist/index.js",
+      "package/dist/index.d.ts",
+      "package/package.json",
+      "package/LICENSE",
+    ].filter((path) => !files.has(path)),
+    [],
+  );
+  assert.notEqual(packageJson.private, true);
+  assert.equal(packageJson.engines?.node, ">=24");
+  assert.equal(
+    packageJson.scripts?.prepack,
+    "node ../../scripts/build-workspaces.mjs @engineer/pack-sdk @engineer/core",
+  );
+});
+
 test("packed SDK ships runtime, declarations, public schema, metadata, and license", async () => {
   // Break caught: SDK consumers must receive every public runtime and legal artifact from a clean pack.
   const files = await packedFiles(sdkRoot, "pack-sdk-tarball-with-spaces ");
@@ -73,28 +128,6 @@ test("packed SDK ships runtime, declarations, public schema, metadata, and licen
     ].filter((path) => !files.has(path)),
     [],
   );
-  assert.equal(packageJson.engines?.node, ">=24");
-  assert.equal(packageJson.scripts?.prepack, "npm run build");
-});
-
-test("packed core ships runtime, declarations, metadata, and license", async () => {
-  // Break caught: the public core package boundary must be publish-ready rather than relying on workspace output.
-  const files = await packedFiles(coreRoot, "core-tarball-with-spaces ");
-  const packageJson = JSON.parse(files.get("package/package.json")?.toString("utf8") ?? "null") as {
-    private?: boolean;
-    engines?: { node?: string };
-    scripts?: { prepack?: string };
-  };
-  assert.deepEqual(
-    [
-      "package/dist/index.js",
-      "package/dist/index.d.ts",
-      "package/package.json",
-      "package/LICENSE",
-    ].filter((path) => !files.has(path)),
-    [],
-  );
-  assert.notEqual(packageJson.private, true);
   assert.equal(packageJson.engines?.node, ">=24");
   assert.equal(packageJson.scripts?.prepack, "npm run build");
 });

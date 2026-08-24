@@ -9,7 +9,7 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "prepack": "npm run build",
+    "prepack": "node ../../scripts/build-workspaces.mjs @engineer/pack-sdk @engineer/core",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import=tsx --test test/*.test.ts"
   },

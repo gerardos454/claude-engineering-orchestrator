@@ -153,8 +153,9 @@ should also assign a distinct auditor for every builder. Every non-empty
 `reviewed_by` reference must resolve to an agent with role `auditor` in the same
 pack. The included official pack pairs each specialist builder with its
 corresponding auditor, while its eight domain auditors resolve to the terminal
-`principal-engineering-auditor`. That principal agent requests only read-only
-tools and has no reviewer of its own.
+`principal-engineering-auditor`. That principal agent requests read-oriented
+inspection tools, including Bash, while its policy forbids file modification;
+it has no reviewer of its own.
 
 ## Validator behavior and diagnostics
 
