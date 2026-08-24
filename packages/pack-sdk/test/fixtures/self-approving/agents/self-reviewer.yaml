@@ -1,0 +1,9 @@
+id: self-reviewer
+role: builder
+produces: [patch]
+reviewed_by: [self-reviewer]
+requires:
+  tools: [phpunit]
+  capabilities: [backend]
+risk:
+  forbidden: [direct-production-deploy]

@@ -1,0 +1,6 @@
+id: example.laravel
+version: 1.2.3
+license: MIT
+core: 1.0.0
+capabilities: [backend]
+agents: [agents/laravel-builder.yaml]

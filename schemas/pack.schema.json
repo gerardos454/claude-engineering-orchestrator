@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://engineering-orchestrator.dev/schemas/pack.schema.json",
+  "title": "Capability Pack",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "license", "core", "capabilities", "agents"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "license": { "type": "string" },
+    "core": { "type": "string" },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string" }
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        ".*": { "type": "string" }
+      }
+    },
+    "agents": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "produces", "reviewed_by", "requires", "risk"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
+        "role": { "enum": ["builder", "auditor", "advisor"] },
+        "produces": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "reviewed_by": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "requires": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tools", "capabilities"],
+          "properties": {
+            "tools": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string" }
+            },
+            "capabilities": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "risk": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["forbidden"],
+          "properties": {
+            "forbidden": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

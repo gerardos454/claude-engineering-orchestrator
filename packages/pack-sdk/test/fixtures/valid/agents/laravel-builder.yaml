@@ -1,0 +1,9 @@
+id: laravel-builder
+role: builder
+produces: [patch, test-results]
+reviewed_by: [quality-auditor]
+requires:
+  tools: [phpunit]
+  capabilities: [backend]
+risk:
+  forbidden: [direct-production-deploy]
