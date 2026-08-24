@@ -60,3 +60,27 @@ test("unknown input returns a usage failure", async () => {
   assert.equal(result.exitCode, 2);
   assert.match(result.stderr, /Usage: engineer/);
 });
+
+test("unknown input emits a JSON usage error when requested", async () => {
+  // Break caught: automation must be able to parse usage failures when it requests JSON output.
+  const result = await runCli(["bogus", "--json"]);
+  assert.equal(result.exitCode, 2);
+  assert.equal(result.stdout, "");
+  assert.deepEqual(JSON.parse(result.stderr), {
+    ok: false,
+    error: "USAGE",
+    message: "Usage: engineer pack validate <path> [--json] | engineer doctor [--json]",
+  });
+});
+
+test("incomplete pack validation emits a JSON usage error when requested", async () => {
+  // Break caught: malformed command shapes must not break JSON-consuming automation.
+  const result = await runCli(["pack", "validate", "--json"]);
+  assert.equal(result.exitCode, 2);
+  assert.equal(result.stdout, "");
+  assert.deepEqual(JSON.parse(result.stderr), {
+    ok: false,
+    error: "USAGE",
+    message: "Usage: engineer pack validate <path> [--json] | engineer doctor [--json]",
+  });
+});

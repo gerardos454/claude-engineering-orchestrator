@@ -13,8 +13,10 @@ export interface CliEnvironment {
 
 export type OutputFormat = "text" | "json";
 
-function printUsage(io: CliIo): number {
-  io.stderr("Usage: engineer pack validate <path> [--json] | engineer doctor [--json]");
+const usage = "Usage: engineer pack validate <path> [--json] | engineer doctor [--json]";
+
+function printUsage(io: CliIo, format: OutputFormat): number {
+  io.stderr(format === "json" ? JSON.stringify({ ok: false, error: "USAGE", message: usage }) : usage);
   return 2;
 }
 
@@ -28,5 +30,5 @@ export async function main(args: string[], io: CliIo, env: CliEnvironment): Prom
   if (commandArgs[0] === "doctor" && commandArgs.length === 1) {
     return diagnoseEnvironment(format, io, env);
   }
-  return printUsage(io);
+  return printUsage(io, format);
 }
