@@ -1,16 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
-import { mkdtemp, readFile, rename, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
 import { promisify } from "node:util";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { withoutWorkspaceBuildOutputs } from "./support/without-workspace-build-outputs.js";
 
 const execFile = promisify(execFileCallback);
 const sdkRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const coreRoot = join(sdkRoot, "..", "core");
+const workspaceRoot = join(sdkRoot, "..", "..");
 
 async function pack(packageRoot: string, destination: string): Promise<string> {
   const npmCli = process.env.npm_execpath;
@@ -56,39 +58,13 @@ async function packedFiles(packageRoot: string, prefix: string): Promise<Map<str
   }
 }
 
-async function withoutWorkspaceBuildOutputs<T>(run: () => Promise<T>): Promise<T> {
-  const holdingRoot = await mkdtemp(join(tmpdir(), "workspace-build-output-backup-with-spaces "));
-  const packageRoots = [sdkRoot, coreRoot];
-  const movedOutputs: Array<{ source: string; backup: string }> = [];
-
-  try {
-    for (const [index, packageRoot] of packageRoots.entries()) {
-      const source = join(packageRoot, "dist");
-      const backup = join(holdingRoot, `dist-${index}`);
-      try {
-        await rename(source, backup);
-        movedOutputs.push({ source, backup });
-      } catch (error) {
-        if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
-      }
-    }
-    return await run();
-  } finally {
-    for (const packageRoot of packageRoots) {
-      await rm(join(packageRoot, "dist"), { recursive: true, force: true });
-    }
-    for (const { source, backup } of movedOutputs) {
-      await rename(backup, source);
-    }
-    await rm(holdingRoot, { recursive: true, force: true });
-  }
-}
-
 test("packed core builds cleanly before the SDK is packed", async () => {
   // Break caught: direct core packing must not rely on SDK or core output left by an earlier workspace build.
-  const files = await withoutWorkspaceBuildOutputs(
-    () => packedFiles(coreRoot, "core-tarball-with-spaces "),
-  );
+  const files = await withoutWorkspaceBuildOutputs({
+    packageRoots: [sdkRoot, coreRoot],
+    holdingParent: join(workspaceRoot, ".engineer", "runs"),
+    run: () => packedFiles(coreRoot, "core-tarball-with-spaces "),
+  });
   const packageJson = JSON.parse(files.get("package/package.json")?.toString("utf8") ?? "null") as {
     private?: boolean;
     engines?: { node?: string };

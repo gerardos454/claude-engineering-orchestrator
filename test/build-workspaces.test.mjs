@@ -14,6 +14,17 @@ test("builds the SDK before every dependent workspace", () => {
   ]);
 });
 
+test("builds exactly an explicitly requested workspace sequence", () => {
+  // Break caught: a package lifecycle must not expand its requested build scope or reorder dependencies.
+  const built = [];
+  runWorkspaceBuilds(
+    (workspace) => built.push(workspace),
+    ["@engineer/pack-sdk", "@engineer/core"],
+  );
+
+  assert.deepEqual(built, ["@engineer/pack-sdk", "@engineer/core"]);
+});
+
 test("stops the workspace build at the first failure", () => {
   // Break caught: continuing after the SDK fails can publish stale dependent build output.
   const built = [];
