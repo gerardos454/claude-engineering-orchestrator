@@ -68,6 +68,43 @@ test("rejects malformed YAML", async () => {
   });
 });
 
+test("reports a missing manifest as schema-invalid", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pack-sdk-missing-manifest-"));
+  try {
+    await assert.rejects(
+      loadPack(root),
+      (error: unknown) =>
+        error instanceof PackValidationError &&
+        error.diagnostics.some((item) => item.code === "SCHEMA_INVALID"),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("reports a dangling manifest symlink as schema-invalid", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "pack-sdk-dangling-manifest-"));
+  try {
+    try {
+      await symlink(join(root, "missing-pack.yaml"), join(root, "pack.yaml"), "file");
+    } catch (error: unknown) {
+      if (error instanceof Error && "code" in error && error.code === "EPERM") {
+        t.skip("creating file symlinks requires Windows developer mode or elevated privileges");
+        return;
+      }
+      throw error;
+    }
+    await assert.rejects(
+      loadPack(root),
+      (error: unknown) =>
+        error instanceof PackValidationError &&
+        error.diagnostics.some((item) => item.code === "SCHEMA_INVALID"),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("rejects manifest properties outside the public contract", async () => {
   await withPack(`${validManifest}unexpected: value\n`, validAgent, async (root) => {
     await assert.rejects(

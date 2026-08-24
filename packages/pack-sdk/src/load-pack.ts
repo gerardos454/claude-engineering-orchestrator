@@ -85,7 +85,18 @@ export async function loadPack(packRoot: string): Promise<CapabilityPack> {
   const validateAgent = ajv.compile(schema.$defs.agent);
 
   const manifestInputPath = resolve(root, "pack.yaml");
-  const manifestPath = await realpath(manifestInputPath);
+  let manifestPath: string;
+  try {
+    manifestPath = await realpath(manifestInputPath);
+  } catch (error: unknown) {
+    throw new PackValidationError([
+      {
+        code: "SCHEMA_INVALID",
+        path: manifestInputPath,
+        message: error instanceof Error ? error.message : "could not read YAML",
+      },
+    ]);
+  }
   if (pathEscapes(root, manifestPath)) {
     throw new PackValidationError([
       {
