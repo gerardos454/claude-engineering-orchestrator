@@ -10,6 +10,7 @@ type PackSchema = { $defs: { agent: object } };
 
 const schemaFile = new URL("./pack.schema.json", import.meta.url);
 const sourceSchemaFile = new URL("../../../schemas/pack.schema.json", import.meta.url);
+const driveRelativePath = /^[A-Za-z]:/;
 
 async function readSchema(): Promise<PackSchema> {
   try {
@@ -49,6 +50,26 @@ function pathEscapes(root: string, candidate: string): boolean {
   return relativeCandidate === ".." || relativeCandidate.startsWith(`..${sep}`) || isAbsolute(relativeCandidate);
 }
 
+function pathEscapesLexically(path: string): boolean {
+  return isAbsolute(path) || path.startsWith("..") || driveRelativePath.test(path);
+}
+
+function manifestAgentPaths(document: unknown): string[] {
+  if (typeof document !== "object" || document === null || !("agents" in document)) {
+    return [];
+  }
+  const { agents } = document as { agents: unknown };
+  return Array.isArray(agents) ? agents.filter((agent): agent is string => typeof agent === "string") : [];
+}
+
+function pathEscapeDiagnostic(path: string): PackDiagnostic {
+  return {
+    code: "PATH_ESCAPE",
+    path,
+    message: "agent descriptor must stay within the pack root",
+  };
+}
+
 function validateOrThrow<T>(document: unknown, validate: ValidateFunction, path: string): T {
   if (validate(document)) {
     return document as T;
@@ -63,9 +84,26 @@ export async function loadPack(packRoot: string): Promise<CapabilityPack> {
   const validateManifest = ajv.compile(schema);
   const validateAgent = ajv.compile(schema.$defs.agent);
 
-  const manifestPath = resolve(root, "pack.yaml");
+  const manifestInputPath = resolve(root, "pack.yaml");
+  const manifestPath = await realpath(manifestInputPath);
+  if (pathEscapes(root, manifestPath)) {
+    throw new PackValidationError([
+      {
+        code: "PATH_ESCAPE",
+        path: "pack.yaml",
+        message: "manifest must stay within the pack root",
+      },
+    ]);
+  }
+  const manifestDocument = await parseYaml(manifestPath);
+  const lexicalEscapes = manifestAgentPaths(manifestDocument)
+    .filter(pathEscapesLexically)
+    .map(pathEscapeDiagnostic);
+  if (lexicalEscapes.length > 0) {
+    throw new PackValidationError(lexicalEscapes);
+  }
   const manifest = validateOrThrow<RawPackManifest>(
-    await parseYaml(manifestPath),
+    manifestDocument,
     validateManifest,
     manifestPath,
   );
@@ -75,12 +113,8 @@ export async function loadPack(packRoot: string): Promise<CapabilityPack> {
   const seenAgentIds = new Set<string>();
 
   for (const agentPath of manifest.agents) {
-    if (isAbsolute(agentPath) || agentPath.startsWith("..")) {
-      diagnostics.push({
-        code: "PATH_ESCAPE",
-        path: agentPath,
-        message: "agent descriptor must stay within the pack root",
-      });
+    if (pathEscapesLexically(agentPath)) {
+      diagnostics.push(pathEscapeDiagnostic(agentPath));
       continue;
     }
 
@@ -98,11 +132,7 @@ export async function loadPack(packRoot: string): Promise<CapabilityPack> {
     }
 
     if (pathEscapes(root, descriptorPath)) {
-      diagnostics.push({
-        code: "PATH_ESCAPE",
-        path: agentPath,
-        message: "agent descriptor must stay within the pack root",
-      });
+      diagnostics.push(pathEscapeDiagnostic(agentPath));
       continue;
     }
 

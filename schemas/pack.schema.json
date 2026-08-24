@@ -25,7 +25,10 @@
     "agents": {
       "type": "array",
       "uniqueItems": true,
-      "items": { "type": "string" }
+      "items": {
+        "type": "string",
+        "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?/)(?:[^/]+/)*[^/]+\\.ya?ml$"
+      }
     }
   },
   "$defs": {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -134,4 +134,78 @@ test("rejects an agent path that escapes the pack root", async () => {
       );
     },
   );
+});
+
+test("rejects an absolute agent descriptor path", async () => {
+  await withPack(
+    validManifest.replace("agent.yaml", "/agent.yaml"),
+    validAgent,
+    async (root) => {
+      await assert.rejects(
+        loadPack(root),
+        (error: unknown) =>
+          error instanceof PackValidationError &&
+          error.diagnostics.some((item) => item.code === "PATH_ESCAPE"),
+      );
+    },
+  );
+});
+
+test("rejects an agent descriptor whose name is not YAML", async () => {
+  await withPack(
+    validManifest.replace("agent.yaml", "agent.txt"),
+    validAgent,
+    async (root) => {
+      await writeFile(join(root, "agent.txt"), validAgent);
+      await assert.rejects(
+        loadPack(root),
+        (error: unknown) =>
+          error instanceof PackValidationError &&
+          error.diagnostics.some((item) => item.code === "SCHEMA_INVALID"),
+      );
+    },
+  );
+});
+
+test("rejects a drive-relative agent descriptor before filesystem access", async () => {
+  await withPack(
+    validManifest.replace("agent.yaml", "D:missing.yaml"),
+    validAgent,
+    async (root) => {
+      await assert.rejects(
+        loadPack(root),
+        (error: unknown) =>
+          error instanceof PackValidationError &&
+          error.diagnostics.some((item) => item.code === "PATH_ESCAPE"),
+      );
+    },
+  );
+});
+
+test("rejects a manifest symlink that escapes the canonical pack root", async (t) => {
+  const sandbox = await mkdtemp(join(tmpdir(), "pack-sdk-manifest-link-"));
+  const root = join(sandbox, "pack");
+  try {
+    await mkdir(root);
+    await writeFile(join(root, "agent.yaml"), validAgent);
+    const outsideManifest = join(sandbox, "outside-pack.yaml");
+    await writeFile(outsideManifest, validManifest);
+    try {
+      await symlink(outsideManifest, join(root, "pack.yaml"), "file");
+    } catch (error: unknown) {
+      if (error instanceof Error && "code" in error && error.code === "EPERM") {
+        t.skip("creating file symlinks requires Windows developer mode or elevated privileges");
+        return;
+      }
+      throw error;
+    }
+    await assert.rejects(
+      loadPack(root),
+      (error: unknown) =>
+        error instanceof PackValidationError &&
+        error.diagnostics.some((item) => item.code === "PATH_ESCAPE"),
+    );
+  } finally {
+    await rm(sandbox, { recursive: true, force: true });
+  }
 });
