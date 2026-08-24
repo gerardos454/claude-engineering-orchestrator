@@ -14,8 +14,11 @@ interface PackFixture {
 
 const agent = `id: builder
 role: builder
+activates_when:
+  files: []
+  task_signals: [resolver-fixture]
 produces: [patch]
-reviewed_by: [auditor]
+reviewed_by: []
 requires:
   tools: [node]
   capabilities: [backend]

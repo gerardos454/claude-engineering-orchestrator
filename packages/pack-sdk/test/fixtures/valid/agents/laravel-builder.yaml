@@ -1,7 +1,10 @@
 id: laravel-builder
 role: builder
+activates_when:
+  files: [composer.json, artisan]
+  task_signals: [api, queue]
 produces: [patch, test-results]
-reviewed_by: [quality-auditor]
+reviewed_by: []
 requires:
   tools: [phpunit]
   capabilities: [backend]

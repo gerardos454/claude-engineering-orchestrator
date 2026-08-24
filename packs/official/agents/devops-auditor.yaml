@@ -1,5 +1,8 @@
 id: devops-auditor
 role: auditor
+activates_when:
+  files: [.github/workflows/**, Dockerfile*, docker-compose*.yml, terraform/**/*.tf, infra/**]
+  task_signals: [aws, ci-cd, deployment, observability, reliability]
 produces:
   - findings
   - verdict
@@ -8,6 +11,6 @@ reviewed_by:
   - principal-engineering-auditor
 requires:
   tools: [Read, Grep, Glob, Bash]
-  capabilities: [devops]
+  capabilities: [orchestration]
 risk:
   forbidden: [file-modification, self-approval]

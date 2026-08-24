@@ -9,8 +9,11 @@ import { loadPack, PackValidationError } from "../src/index.js";
 const here = dirname(fileURLToPath(import.meta.url));
 const validAgent = `id: laravel-builder
 role: builder
+activates_when:
+  files: [composer.json]
+  task_signals: [api, queue]
 produces: [patch, test-results]
-reviewed_by: [quality-auditor]
+reviewed_by: []
 requires:
   tools: [phpunit]
   capabilities: [backend]
@@ -44,6 +47,10 @@ agents: [agent.yaml]
 test("loads and normalizes a valid pack", async () => {
   const pack = await loadPack(join(here, "fixtures", "valid"));
   assert.equal(pack.id, "example.laravel");
+  assert.deepEqual(pack.agents[0]?.activates_when, {
+    files: ["composer.json", "artisan"],
+    task_signals: ["api", "queue"],
+  });
   assert.deepEqual(pack.agents[0]?.produces, ["patch", "test-results"]);
   assert.deepEqual(pack.dependencies, {});
 });
@@ -153,6 +160,86 @@ test("rejects agent descriptors missing required fields", async () => {
         (error: unknown) =>
           error instanceof PackValidationError &&
           error.diagnostics.some((item) => item.code === "SCHEMA_INVALID"),
+      );
+    },
+  );
+});
+
+test("requires strict activation signals on every descriptor", async () => {
+  // Break caught: planner inputs must not disappear or accept undeclared activation keys.
+  const cases = [
+    validAgent.replace(/activates_when:\n(?:  .*\n){2}/, ""),
+    validAgent.replace("  task_signals: [api, queue]\n", ""),
+    validAgent.replace("  task_signals: [api, queue]\n", "  task_signals: [api, queue]\n  unexpected: true\n"),
+  ];
+
+  for (const agent of cases) {
+    await withPack(validManifest, agent, async (root) => {
+      await assert.rejects(
+        loadPack(root),
+        (error: unknown) =>
+          error instanceof PackValidationError &&
+          error.diagnostics.some((item) => item.code === "SCHEMA_INVALID"),
+      );
+    });
+  }
+});
+
+test("rejects duplicate activation signals", async () => {
+  // Break caught: duplicate planner inputs make routing explanations unstable.
+  await withPack(
+    validManifest,
+    validAgent.replace("files: [composer.json]", "files: [composer.json, composer.json]"),
+    async (root) => {
+      await assert.rejects(
+        loadPack(root),
+        (error: unknown) =>
+          error instanceof PackValidationError &&
+          error.diagnostics.some((item) => item.code === "SCHEMA_INVALID"),
+      );
+    },
+  );
+});
+
+test("rejects a reviewed_by reference that is absent from the pack", async () => {
+  // Break caught: a declared review edge must never resolve to no agent.
+  await withPack(
+    validManifest,
+    validAgent.replace("reviewed_by: []", "reviewed_by: [missing-auditor]"),
+    async (root) => {
+      await assert.rejects(
+        loadPack(root),
+        (error: unknown) =>
+          error instanceof PackValidationError &&
+          error.diagnostics.some((item) =>
+            item.code === "INVALID_REVIEWER" &&
+            item.path === "agent.yaml" &&
+            item.message === "reviewer missing-auditor does not resolve to an agent in this pack"
+          ),
+      );
+    },
+  );
+});
+
+test("rejects a reviewed_by reference that resolves to a builder", async () => {
+  // Break caught: a local review edge must terminate at an independent auditor role.
+  const secondBuilder = validAgent
+    .replace("id: laravel-builder", "id: second-builder")
+    .replace("task_signals: [api, queue]", "task_signals: [worker]");
+  await withPack(
+    validManifest.replace("[agent.yaml]", "[agent.yaml, second.yaml]"),
+    validAgent.replace("reviewed_by: []", "reviewed_by: [second-builder]"),
+    async (root) => {
+      await writeFile(join(root, "second.yaml"), secondBuilder);
+      await assert.rejects(
+        loadPack(root),
+        (error: unknown) =>
+          error instanceof PackValidationError &&
+          error.diagnostics.some((item) =>
+            item.code === "INVALID_REVIEWER" &&
+            item.path === "agent.yaml" &&
+            item.message === "reviewer second-builder must have role auditor"
+          ),
       );
     },
   );

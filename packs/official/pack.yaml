@@ -4,15 +4,7 @@ license: MIT
 core: ^0.1.0
 capabilities:
   - orchestration
-  - principal-review
-  - architecture
-  - backend
-  - frontend
-  - ui-ux
-  - database
-  - security
-  - devops
-  - qa
+dependencies: {}
 agents:
   - agents/software-architect.yaml
   - agents/software-architect-auditor.yaml
@@ -30,3 +22,4 @@ agents:
   - agents/devops-auditor.yaml
   - agents/qa-engineer.yaml
   - agents/qa-auditor.yaml
+  - agents/principal-engineering-auditor.yaml

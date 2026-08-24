@@ -1,5 +1,8 @@
 id: qa-auditor
 role: auditor
+activates_when:
+  files: [phpunit.xml*, tests/**, package.json, pubspec.yaml]
+  task_signals: [test, regression, quality, edge-case, validation]
 produces:
   - findings
   - verdict
@@ -8,6 +11,6 @@ reviewed_by:
   - principal-engineering-auditor
 requires:
   tools: [Read, Grep, Glob, Bash]
-  capabilities: [qa]
+  capabilities: [orchestration]
 risk:
   forbidden: [file-modification, self-approval]

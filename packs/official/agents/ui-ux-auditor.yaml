@@ -1,5 +1,8 @@
 id: ui-ux-auditor
 role: auditor
+activates_when:
+  files: [tailwind.config.*, resources/**/*.blade.php, lib/**/*.dart]
+  task_signals: [ui, ux, accessibility, product-flow, design-system]
 produces:
   - findings
   - verdict
@@ -8,6 +11,6 @@ reviewed_by:
   - principal-engineering-auditor
 requires:
   tools: [Read, Grep, Glob, Bash]
-  capabilities: [ui-ux]
+  capabilities: [orchestration]
 risk:
   forbidden: [file-modification, self-approval]

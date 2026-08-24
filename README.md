@@ -15,11 +15,16 @@ npm run build
 node packages/cli/dist/bin.js pack validate packs/official --json
 ```
 
-The included official pack validates 16 agents. See
+The included official pack validates 17 agents: eight builders and nine
+auditors, including the terminal principal engineering auditor. See
 [capability-pack authoring](docs/capability-packs.md) for the manifest,
 descriptor, permission, validation, and lock behavior.
 
-## Install globally
+The foundation CLI is private and is not published as an npm-installable
+package. The validation command above runs its built entrypoint from this
+source checkout.
+
+## Install the legacy Claude Code agents globally
 
 macOS/Linux/WSL:
 
@@ -33,7 +38,7 @@ Windows PowerShell:
 ./install.ps1 -Global
 ```
 
-## Install into one project
+## Install the legacy Claude Code agents into one project
 
 From this folder:
 

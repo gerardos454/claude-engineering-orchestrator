@@ -1,5 +1,8 @@
 id: software-architect
 role: builder
+activates_when:
+  files: [composer.json, package.json, pubspec.yaml, terraform/**/*.tf, docs/adr/**]
+  task_signals: [architecture, contracts, cross-cutting, migration, scaling]
 produces:
   - patch
   - architecture-decisions
@@ -9,6 +12,6 @@ reviewed_by:
   - software-architect-auditor
 requires:
   tools: [Read, Grep, Glob, Edit, Write, Bash]
-  capabilities: [architecture, orchestration, principal-review]
+  capabilities: [orchestration]
 risk:
   forbidden: [self-approval, unreviewed-cross-cutting-change]

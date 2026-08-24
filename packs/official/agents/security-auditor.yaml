@@ -1,5 +1,8 @@
 id: security-auditor
 role: auditor
+activates_when:
+  files: [composer.json, package.json, app/Policies/**/*.php, config/auth.php, routes/**/*]
+  task_signals: [authentication, authorization, tenant-isolation, secrets, security]
 produces:
   - findings
   - verdict
@@ -8,6 +11,6 @@ reviewed_by:
   - principal-engineering-auditor
 requires:
   tools: [Read, Grep, Glob, Bash]
-  capabilities: [security, principal-review]
+  capabilities: [orchestration]
 risk:
   forbidden: [file-modification, self-approval]

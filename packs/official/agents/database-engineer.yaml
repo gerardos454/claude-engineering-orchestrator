@@ -1,5 +1,8 @@
 id: database-engineer
 role: builder
+activates_when:
+  files: [database/migrations/**/*.php, database/schema/**, "**/*.sql"]
+  task_signals: [database, schema, migration, query-performance, data-integrity]
 produces:
   - patch
   - schema-query-evidence
@@ -8,6 +11,6 @@ reviewed_by:
   - database-auditor
 requires:
   tools: [Read, Grep, Glob, Edit, Write, Bash]
-  capabilities: [database, orchestration]
+  capabilities: [orchestration]
 risk:
   forbidden: [self-approval, unreviewed-destructive-migration]

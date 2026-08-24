@@ -6,8 +6,8 @@
   "engines": { "node": ">=24" },
   "workspaces": ["packages/*"],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "build": "node scripts/build-workspaces.mjs",
+    "test": "node --test test/*.test.mjs && npm run test --workspaces --if-present",
     "typecheck": "npm run build --workspace @engineer/pack-sdk && npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {

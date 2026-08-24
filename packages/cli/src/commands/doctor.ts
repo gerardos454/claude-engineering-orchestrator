@@ -12,7 +12,7 @@ interface DoctorCheck {
 }
 
 function parseMajorVersion(version: string): number | undefined {
-  const match = /^(\d+)/.exec(version);
+  const match = /^(\d+)(?:\.\d+){0,2}$/.exec(version);
   return match?.[1] === undefined ? undefined : Number.parseInt(match[1], 10);
 }
 

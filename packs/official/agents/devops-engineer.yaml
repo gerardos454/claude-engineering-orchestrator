@@ -1,5 +1,8 @@
 id: devops-engineer
 role: builder
+activates_when:
+  files: [.github/workflows/**, Dockerfile*, docker-compose*.yml, terraform/**/*.tf, infra/**]
+  task_signals: [aws, ci-cd, deployment, observability, reliability]
 produces:
   - patch
   - deployment-rollback-evidence
@@ -8,6 +11,6 @@ reviewed_by:
   - devops-auditor
 requires:
   tools: [Read, Grep, Glob, Edit, Write, Bash]
-  capabilities: [devops, orchestration]
+  capabilities: [orchestration]
 risk:
   forbidden: [self-approval, unapproved-production-deploy, secret-exposure]

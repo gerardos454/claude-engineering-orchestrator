@@ -1,5 +1,8 @@
 id: self-reviewer
 role: builder
+activates_when:
+  files: []
+  task_signals: [self-review]
 produces: [patch]
 reviewed_by: [self-reviewer]
 requires:

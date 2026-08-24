@@ -7,8 +7,10 @@ delivery orchestration is under active development.
 
 ## Validate the included pack
 
-Use Node 24 or later. From a clean clone, install dependencies, build the CLI,
-then validate the included official pack:
+Use Node 24 or later. From a clean clone, install dependencies, build the
+workspace, then validate the included official pack. The root build orders the
+SDK before the core and CLI packages so generated SDK declarations exist for
+dependent builds:
 
 ```bash
 npm ci
@@ -26,7 +28,7 @@ returns the stable nested `pack` object on success:
   "pack": {
     "id": "official.engineering-team",
     "version": "0.1.0",
-    "agents": 16
+    "agents": 17
   }
 }
 ```
@@ -59,6 +61,7 @@ packs/official/
     devops-auditor.yaml
     qa-engineer.yaml
     qa-auditor.yaml
+    principal-engineering-auditor.yaml
 ```
 
 This complete manifest shows every manifest field. `dependencies` is optional
@@ -72,15 +75,6 @@ license: MIT
 core: ^0.1.0
 capabilities:
   - orchestration
-  - principal-review
-  - architecture
-  - backend
-  - frontend
-  - ui-ux
-  - database
-  - security
-  - devops
-  - qa
 dependencies: {}
 agents:
   - agents/software-architect.yaml
@@ -99,6 +93,7 @@ agents:
   - agents/devops-auditor.yaml
   - agents/qa-engineer.yaml
   - agents/qa-auditor.yaml
+  - agents/principal-engineering-auditor.yaml
 ```
 
 The pack ID and agent IDs must use lowercase letters, digits, dots, and
@@ -120,6 +115,9 @@ working `packs/official/agents/backend-engineer.yaml` descriptor.
 ```yaml
 id: backend-engineer
 role: builder
+activates_when:
+  files: [composer.json, artisan, routes/**/*.php, app/**/*.php]
+  task_signals: [api, backend, queue, integration, tenant-scoping]
 produces:
   - patch
   - backend-test-results
@@ -128,30 +126,35 @@ reviewed_by:
   - backend-auditor
 requires:
   tools: [Read, Grep, Glob, Edit, Write, Bash]
-  capabilities: [backend, orchestration]
+  capabilities: [orchestration]
 risk:
   forbidden: [self-approval, cross-tenant-data-access]
 ```
 
 `role` is one of `builder`, `auditor`, or `advisor`. Builders produce changes
 and evidence; auditors independently examine that evidence; advisors provide
-guidance without being an approval authority. A pack's `capabilities` and an
-agent's `requires.capabilities` are the activation signals used to match work
-to relevant specialists. The current foundation validates their structure but
-does not yet schedule agents or make activation decisions.
+guidance without being an approval authority. Every descriptor must declare a
+strict `activates_when` object with unique `files` and `task_signals` string
+arrays. These are planner inputs: repository discovery can match file globs and
+the normalized intent can match task signals, but the planner owns the final
+selection decision. The current foundation validates and preserves these
+signals but does not yet schedule agents or make activation decisions.
 
-`requires.tools` and `requires.capabilities` are requested permissions, not a
-runtime grant. The host that runs an agent must grant the actual tool access.
-The pack validator checks that these fields are arrays of unique strings; it
-does not inspect a host's permissions or elevate access. Keep requests narrow,
-and list sensitive operations under `risk.forbidden`.
+`requires.tools` and `requires.capabilities` are runtime prerequisites, not
+activation signals and not a runtime grant. The host that runs an agent must
+grant the actual tool access and supply required capabilities. The pack
+validator checks that these fields are arrays of unique strings; it does not
+inspect a host's permissions or elevate access. Keep requests narrow, and list
+sensitive operations under `risk.forbidden`.
 
 Review must be independent: a builder cannot approve itself. The validator
 rejects a descriptor whose `reviewed_by` list contains its own `id`. Authors
-should also assign a distinct auditor for every builder; the included official
-pack pairs each specialist builder with its corresponding auditor, while its
-auditors are reviewed by the principal engineering auditor in the orchestrator
-policy.
+should also assign a distinct auditor for every builder. Every non-empty
+`reviewed_by` reference must resolve to an agent with role `auditor` in the same
+pack. The included official pack pairs each specialist builder with its
+corresponding auditor, while its eight domain auditors resolve to the terminal
+`principal-engineering-auditor`. That principal agent requests only read-only
+tools and has no reviewer of its own.
 
 ## Validator behavior and diagnostics
 
@@ -172,6 +175,7 @@ These are all current diagnostic and resolution codes:
 | `SCHEMA_INVALID` | pack validator | Manifest or descriptor YAML cannot be read or does not satisfy the schema. |
 | `SELF_REVIEW` | pack validator | An agent lists itself in `reviewed_by`. |
 | `DUPLICATE_AGENT` | pack validator | Two descriptors have the same agent ID. |
+| `INVALID_REVIEWER` | pack validator | A `reviewed_by` ID is absent from the same pack or does not have role `auditor`. |
 | `PATH_ESCAPE` | pack validator and resolver | A manifest, descriptor, or registry path is absolute, traverses outside its root, or resolves outside it. |
 | `MISSING_DEPENDENCY` | resolver | A dependency is absent from the registry or does not match its registry key. |
 | `VERSION_MISMATCH` | resolver | Selected dependency roots or versions conflict, or a dependency is outside its requested range. |
@@ -202,7 +206,16 @@ and returns an in-memory lock:
 This result is only a deterministic in-memory summary of each resolved pack's
 ID, version, and `local` source. The current foundation does not write or read
 a lockfile, does not content-address packs, and the summary is not sufficient
-to reproduce an installation. The CLI does not yet resolve a registry.
+to reproduce an installation. Dependency ranges currently support only exact
+versions such as `1.2.3` and caret ranges such as `^1.2.3`; other range syntax
+is rejected as incompatible. A manifest's `core` range is schema-validated and
+preserved, but core compatibility is not evaluated yet. The CLI does not yet
+resolve a registry.
+
+The foundation CLI remains a private workspace package. It is not published
+for npm installation; run its built entrypoint from a source checkout as shown
+above. The repository's install scripts copy the preserved Claude Code agent
+Markdown files and do not install the foundation CLI.
 
 ## Contributor checks
 

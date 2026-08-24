@@ -1,5 +1,8 @@
 id: software-architect-auditor
 role: auditor
+activates_when:
+  files: [composer.json, package.json, pubspec.yaml, terraform/**/*.tf, docs/adr/**]
+  task_signals: [architecture, contracts, cross-cutting, migration, scaling]
 produces:
   - findings
   - verdict
@@ -8,6 +11,6 @@ reviewed_by:
   - principal-engineering-auditor
 requires:
   tools: [Read, Grep, Glob, Bash]
-  capabilities: [architecture, principal-review]
+  capabilities: [orchestration]
 risk:
   forbidden: [file-modification, self-approval]

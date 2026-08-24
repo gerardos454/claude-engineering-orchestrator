@@ -1,5 +1,8 @@
 id: backend-engineer
 role: builder
+activates_when:
+  files: [composer.json, artisan, routes/**/*.php, app/**/*.php]
+  task_signals: [api, backend, queue, integration, tenant-scoping]
 produces:
   - patch
   - backend-test-results
@@ -8,6 +11,6 @@ reviewed_by:
   - backend-auditor
 requires:
   tools: [Read, Grep, Glob, Edit, Write, Bash]
-  capabilities: [backend, orchestration]
+  capabilities: [orchestration]
 risk:
   forbidden: [self-approval, cross-tenant-data-access]

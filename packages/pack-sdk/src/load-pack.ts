@@ -120,6 +120,7 @@ export async function loadPack(packRoot: string): Promise<CapabilityPack> {
   );
 
   const agents: PackAgent[] = [];
+  const descriptorPaths = new Map<PackAgent, string>();
   const diagnostics: PackDiagnostic[] = [];
   const seenAgentIds = new Set<string>();
 
@@ -170,6 +171,28 @@ export async function loadPack(packRoot: string): Promise<CapabilityPack> {
     }
     seenAgentIds.add(agent.id);
     agents.push(agent);
+    descriptorPaths.set(agent, agentPath);
+  }
+
+  const agentsById = new Map(agents.map((agent) => [agent.id, agent]));
+  for (const agent of agents) {
+    for (const reviewerId of agent.reviewed_by) {
+      if (reviewerId === agent.id) continue;
+      const reviewer = agentsById.get(reviewerId);
+      if (reviewer === undefined) {
+        diagnostics.push({
+          code: "INVALID_REVIEWER",
+          path: descriptorPaths.get(agent) ?? agent.id,
+          message: `reviewer ${reviewerId} does not resolve to an agent in this pack`,
+        });
+      } else if (reviewer.role !== "auditor") {
+        diagnostics.push({
+          code: "INVALID_REVIEWER",
+          path: descriptorPaths.get(agent) ?? agent.id,
+          message: `reviewer ${reviewerId} must have role auditor`,
+        });
+      }
+    }
   }
 
   if (diagnostics.length > 0) {

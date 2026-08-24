@@ -1,5 +1,10 @@
 export type AgentRole = "builder" | "auditor" | "advisor";
 
+export interface AgentActivationSignals {
+  files: string[];
+  task_signals: string[];
+}
+
 export interface RawPackManifest {
   id: string;
   version: string;
@@ -13,6 +18,7 @@ export interface RawPackManifest {
 export interface PackAgent {
   id: string;
   role: AgentRole;
+  activates_when: AgentActivationSignals;
   produces: string[];
   reviewed_by: string[];
   requires: { tools: string[]; capabilities: string[] };
@@ -31,7 +37,7 @@ export interface CapabilityPack {
 }
 
 export interface PackDiagnostic {
-  code: "SCHEMA_INVALID" | "SELF_REVIEW" | "DUPLICATE_AGENT" | "PATH_ESCAPE";
+  code: "SCHEMA_INVALID" | "SELF_REVIEW" | "DUPLICATE_AGENT" | "INVALID_REVIEWER" | "PATH_ESCAPE";
   path: string;
   message: string;
 }

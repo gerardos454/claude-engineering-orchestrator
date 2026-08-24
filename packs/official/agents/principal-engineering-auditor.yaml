@@ -1,0 +1,15 @@
+id: principal-engineering-auditor
+role: auditor
+activates_when:
+  files: []
+  task_signals: [final-review, production-readiness, release-readiness, principal-review]
+produces:
+  - findings
+  - verdict
+  - production-readiness
+reviewed_by: []
+requires:
+  tools: [Read, Grep, Glob, Bash]
+  capabilities: [orchestration]
+risk:
+  forbidden: [file-modification, self-approval]

@@ -35,10 +35,27 @@
     "agent": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "role", "produces", "reviewed_by", "requires", "risk"],
+      "required": ["id", "role", "activates_when", "produces", "reviewed_by", "requires", "risk"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
         "role": { "enum": ["builder", "auditor", "advisor"] },
+        "activates_when": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["files", "task_signals"],
+          "properties": {
+            "files": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "task_signals": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
         "produces": {
           "type": "array",
           "uniqueItems": true,

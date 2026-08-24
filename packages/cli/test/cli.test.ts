@@ -54,6 +54,13 @@ test("doctor reports an unsupported Node version as an environment failure", asy
   assert.deepEqual(JSON.parse(result.stderr).checks.node, { ok: false, version: "23.9.0", required: ">=24" });
 });
 
+test("doctor rejects a malformed injected Node version", async () => {
+  // Break caught: a numeric prefix must not make malformed environment data look supported.
+  const result = await runCli(["doctor", "--json"], { nodeVersion: "24oops", cwd: process.cwd() });
+  assert.equal(result.exitCode, 4);
+  assert.deepEqual(JSON.parse(result.stderr).checks.node, { ok: false, version: "24oops", required: ">=24" });
+});
+
 test("unknown input returns a usage failure", async () => {
   // Break caught: unrecognized commands must not silently succeed.
   const result = await runCli(["pack"]);

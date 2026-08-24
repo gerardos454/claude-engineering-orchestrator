@@ -1,5 +1,8 @@
 id: backend-auditor
 role: auditor
+activates_when:
+  files: [composer.json, artisan, routes/**/*.php, app/**/*.php]
+  task_signals: [api, backend, queue, integration, tenant-scoping]
 produces:
   - findings
   - verdict
@@ -8,6 +11,6 @@ reviewed_by:
   - principal-engineering-auditor
 requires:
   tools: [Read, Grep, Glob, Bash]
-  capabilities: [backend]
+  capabilities: [orchestration]
 risk:
   forbidden: [file-modification, self-approval]

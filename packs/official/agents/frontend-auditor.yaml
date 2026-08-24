@@ -1,5 +1,12 @@
 id: frontend-auditor
 role: auditor
+activates_when:
+  files:
+    - package.json
+    - tailwind.config.*
+    - resources/**/*.blade.php
+    - "resources/**/*.{js,ts,jsx,tsx}"
+  task_signals: [web-ui, frontend, responsive, accessibility, client-state]
 produces:
   - findings
   - verdict
@@ -8,6 +15,6 @@ reviewed_by:
   - principal-engineering-auditor
 requires:
   tools: [Read, Grep, Glob, Bash]
-  capabilities: [frontend]
+  capabilities: [orchestration]
 risk:
   forbidden: [file-modification, self-approval]

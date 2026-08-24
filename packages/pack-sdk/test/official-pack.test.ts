@@ -35,9 +35,68 @@ const expectedAgentRoles = new Map([
   ["devops-auditor", "auditor"],
   ["qa-engineer", "builder"],
   ["qa-auditor", "auditor"],
+  ["principal-engineering-auditor", "auditor"],
 ]);
 
-test("official pack preserves the existing team inventory", async () => {
+const architectureActivation = {
+  files: ["composer.json", "package.json", "pubspec.yaml", "terraform/**/*.tf", "docs/adr/**"],
+  task_signals: ["architecture", "contracts", "cross-cutting", "migration", "scaling"],
+};
+const backendActivation = {
+  files: ["composer.json", "artisan", "routes/**/*.php", "app/**/*.php"],
+  task_signals: ["api", "backend", "queue", "integration", "tenant-scoping"],
+};
+const frontendActivation = {
+  files: ["package.json", "tailwind.config.*", "resources/**/*.blade.php", "resources/**/*.{js,ts,jsx,tsx}"],
+  task_signals: ["web-ui", "frontend", "responsive", "accessibility", "client-state"],
+};
+const uiUxActivation = {
+  files: ["tailwind.config.*", "resources/**/*.blade.php", "lib/**/*.dart"],
+  task_signals: ["ui", "ux", "accessibility", "product-flow", "design-system"],
+};
+const databaseActivation = {
+  files: ["database/migrations/**/*.php", "database/schema/**", "**/*.sql"],
+  task_signals: ["database", "schema", "migration", "query-performance", "data-integrity"],
+};
+const securityActivation = {
+  files: ["composer.json", "package.json", "app/Policies/**/*.php", "config/auth.php", "routes/**/*"],
+  task_signals: ["authentication", "authorization", "tenant-isolation", "secrets", "security"],
+};
+const devopsActivation = {
+  files: [".github/workflows/**", "Dockerfile*", "docker-compose*.yml", "terraform/**/*.tf", "infra/**"],
+  task_signals: ["aws", "ci-cd", "deployment", "observability", "reliability"],
+};
+const qaActivation = {
+  files: ["phpunit.xml*", "tests/**", "package.json", "pubspec.yaml"],
+  task_signals: ["test", "regression", "quality", "edge-case", "validation"],
+};
+const principalActivation = {
+  files: [],
+  task_signals: ["final-review", "production-readiness", "release-readiness", "principal-review"],
+};
+
+const expectedActivationByAgent = new Map([
+  ["software-architect", architectureActivation],
+  ["software-architect-auditor", architectureActivation],
+  ["backend-engineer", backendActivation],
+  ["backend-auditor", backendActivation],
+  ["frontend-engineer", frontendActivation],
+  ["frontend-auditor", frontendActivation],
+  ["ui-ux-engineer", uiUxActivation],
+  ["ui-ux-auditor", uiUxActivation],
+  ["database-engineer", databaseActivation],
+  ["database-auditor", databaseActivation],
+  ["security-engineer", securityActivation],
+  ["security-auditor", securityActivation],
+  ["devops-engineer", devopsActivation],
+  ["devops-auditor", devopsActivation],
+  ["qa-engineer", qaActivation],
+  ["qa-auditor", qaActivation],
+  ["principal-engineering-auditor", principalActivation],
+]);
+
+test("official pack preserves the complete normalized team inventory", async () => {
+  // Break caught: every preserved specialist, including the principal gate, must ship exactly once with its role.
   const pack = await loadPack(officialPackRoot);
   const builders = pack.agents.filter((agent) => agent.role === "builder");
   const auditors = pack.agents.filter((agent) => agent.role === "auditor");
@@ -46,59 +105,47 @@ test("official pack preserves the existing team inventory", async () => {
   assert.equal(pack.version, "0.1.0");
   assert.equal(pack.license, "MIT");
   assert.equal(pack.core, "^0.1.0");
-  assert.deepEqual(
-    new Set(pack.capabilities),
-    new Set([
-      "orchestration",
-      "principal-review",
-      "architecture",
-      "backend",
-      "frontend",
-      "ui-ux",
-      "database",
-      "security",
-      "devops",
-      "qa",
-    ]),
-  );
-  assert.equal(pack.agents.length, 16);
+  assert.deepEqual(pack.capabilities, ["orchestration"]);
+  assert.equal(pack.agents.length, 17);
   assert.deepEqual(
     new Map(pack.agents.map((agent) => [agent.id, agent.role])),
     expectedAgentRoles,
   );
   assert.equal(builders.length, 8);
-  assert.equal(auditors.length, 8);
+  assert.equal(auditors.length, 9);
   assert.deepEqual(
     new Map(builders.map((builder) => [builder.id, builder.reviewed_by[0]])),
     reviewerByBuilder,
   );
   assert.deepEqual(
-    new Set(builders.flatMap((builder) => builder.reviewed_by)),
-    new Set(auditors.map((auditor) => auditor.id)),
+    new Map(pack.agents.map((agent) => [agent.id, agent.activates_when])),
+    expectedActivationByAgent,
   );
+  for (const agent of pack.agents) {
+    assert.deepEqual(agent.requires.capabilities, ["orchestration"]);
+  }
 });
 
-test("official pack retains independent principal review as a cross-cutting gate", async () => {
+test("official pack declares the principal auditor as the terminal read-only gate", async () => {
+  // Break caught: domain auditors must resolve to a real, independent, non-editing final reviewer.
   const pack = await loadPack(officialPackRoot);
-  const agentsRequiringPrincipalReview = new Set(
-    pack.agents
-      .filter((agent) => agent.requires.capabilities.includes("principal-review"))
-      .map((agent) => agent.id),
-  );
+  const principal = pack.agents.find((agent) => agent.id === "principal-engineering-auditor");
+  assert.deepEqual(principal, {
+    id: "principal-engineering-auditor",
+    role: "auditor",
+    activates_when: principalActivation,
+    produces: ["findings", "verdict", "production-readiness"],
+    reviewed_by: [],
+    requires: {
+      tools: ["Read", "Grep", "Glob", "Bash"],
+      capabilities: ["orchestration"],
+    },
+    risk: { forbidden: ["file-modification", "self-approval"] },
+  });
 
-  assert.deepEqual(
-    agentsRequiringPrincipalReview,
-    new Set([
-      "software-architect",
-      "software-architect-auditor",
-      "security-engineer",
-      "security-auditor",
-    ]),
-  );
-
-  for (const agent of pack.agents) {
-    if (agent.role === "auditor") {
-      assert.deepEqual(agent.reviewed_by, ["principal-engineering-auditor"]);
-    }
+  for (const auditor of pack.agents.filter((agent) =>
+    agent.role === "auditor" && agent.id !== "principal-engineering-auditor"
+  )) {
+    assert.deepEqual(auditor.reviewed_by, ["principal-engineering-auditor"]);
   }
 });

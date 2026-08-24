@@ -1,5 +1,12 @@
 id: frontend-engineer
 role: builder
+activates_when:
+  files:
+    - package.json
+    - tailwind.config.*
+    - resources/**/*.blade.php
+    - "resources/**/*.{js,ts,jsx,tsx}"
+  task_signals: [web-ui, frontend, responsive, accessibility, client-state]
 produces:
   - patch
   - frontend-test-results
@@ -8,6 +15,6 @@ reviewed_by:
   - frontend-auditor
 requires:
   tools: [Read, Grep, Glob, Edit, Write, Bash]
-  capabilities: [frontend, orchestration]
+  capabilities: [orchestration]
 risk:
   forbidden: [self-approval, client-side-authorization-bypass]
