@@ -18,6 +18,25 @@ const reviewerByBuilder = new Map([
   ["qa-engineer", "qa-auditor"],
 ]);
 
+const expectedAgentRoles = new Map([
+  ["software-architect", "builder"],
+  ["software-architect-auditor", "auditor"],
+  ["backend-engineer", "builder"],
+  ["backend-auditor", "auditor"],
+  ["frontend-engineer", "builder"],
+  ["frontend-auditor", "auditor"],
+  ["ui-ux-engineer", "builder"],
+  ["ui-ux-auditor", "auditor"],
+  ["database-engineer", "builder"],
+  ["database-auditor", "auditor"],
+  ["security-engineer", "builder"],
+  ["security-auditor", "auditor"],
+  ["devops-engineer", "builder"],
+  ["devops-auditor", "auditor"],
+  ["qa-engineer", "builder"],
+  ["qa-auditor", "auditor"],
+]);
+
 test("official pack preserves the existing team inventory", async () => {
   const pack = await loadPack(officialPackRoot);
   const builders = pack.agents.filter((agent) => agent.role === "builder");
@@ -42,6 +61,11 @@ test("official pack preserves the existing team inventory", async () => {
       "qa",
     ]),
   );
+  assert.equal(pack.agents.length, 16);
+  assert.deepEqual(
+    new Map(pack.agents.map((agent) => [agent.id, agent.role])),
+    expectedAgentRoles,
+  );
   assert.equal(builders.length, 8);
   assert.equal(auditors.length, 8);
   assert.deepEqual(
@@ -56,15 +80,25 @@ test("official pack preserves the existing team inventory", async () => {
 
 test("official pack retains independent principal review as a cross-cutting gate", async () => {
   const pack = await loadPack(officialPackRoot);
-  const principalReviewedDomains = new Set(["architecture", "security"]);
+  const agentsRequiringPrincipalReview = new Set(
+    pack.agents
+      .filter((agent) => agent.requires.capabilities.includes("principal-review"))
+      .map((agent) => agent.id),
+  );
+
+  assert.deepEqual(
+    agentsRequiringPrincipalReview,
+    new Set([
+      "software-architect",
+      "software-architect-auditor",
+      "security-engineer",
+      "security-auditor",
+    ]),
+  );
 
   for (const agent of pack.agents) {
     if (agent.role === "auditor") {
       assert.deepEqual(agent.reviewed_by, ["principal-engineering-auditor"]);
-    }
-
-    if (agent.requires.capabilities.some((capability) => principalReviewedDomains.has(capability))) {
-      assert.ok(agent.requires.capabilities.includes("principal-review"));
     }
   }
 });

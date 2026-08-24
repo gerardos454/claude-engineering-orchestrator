@@ -8,6 +8,6 @@ reviewed_by:
   - principal-engineering-auditor
 requires:
   tools: [Read, Grep, Glob, Bash]
-  capabilities: [devops, principal-review]
+  capabilities: [devops]
 risk:
   forbidden: [file-modification, self-approval]
