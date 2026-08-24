@@ -28,7 +28,7 @@ export class PackResolutionError extends Error {
   }
 }
 
-type Version = readonly [number, number, number];
+type Version = readonly [bigint, bigint, bigint];
 
 function escapesRoot(root: string, candidate: string): boolean {
   const candidateRelativePath = relative(root, candidate);
@@ -38,13 +38,18 @@ function escapesRoot(root: string, candidate: string): boolean {
 function parseVersion(version: string): Version | undefined {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
   if (!match) return undefined;
-  return [Number(match[1]), Number(match[2]), Number(match[3])];
+  const [, major, minor, patch] = match;
+  if (major === undefined || minor === undefined || patch === undefined) return undefined;
+  return [BigInt(major), BigInt(minor), BigInt(patch)];
 }
 
 function compareVersions(left: Version, right: Version): number {
   const [leftMajor, leftMinor, leftPatch] = left;
   const [rightMajor, rightMinor, rightPatch] = right;
-  return leftMajor - rightMajor || leftMinor - rightMinor || leftPatch - rightPatch;
+  if (leftMajor !== rightMajor) return leftMajor < rightMajor ? -1 : 1;
+  if (leftMinor !== rightMinor) return leftMinor < rightMinor ? -1 : 1;
+  if (leftPatch !== rightPatch) return leftPatch < rightPatch ? -1 : 1;
+  return 0;
 }
 
 function satisfies(range: string, version: string): boolean {
@@ -56,7 +61,11 @@ function satisfies(range: string, version: string): boolean {
   if (!lowerBound || !candidate || compareVersions(candidate, lowerBound) < 0) return false;
 
   const [major, minor, patch] = lowerBound;
-  const upperBound: Version = major > 0 ? [major + 1, 0, 0] : minor > 0 ? [0, minor + 1, 0] : [0, 0, patch + 1];
+  const upperBound: Version = major > 0n
+    ? [major + 1n, 0n, 0n]
+    : minor > 0n
+      ? [0n, minor + 1n, 0n]
+      : [0n, 0n, patch + 1n];
   return compareVersions(candidate, upperBound) < 0;
 }
 
@@ -88,8 +97,25 @@ export async function resolvePacks(
   const ordered: CapabilityPack[] = [];
   const completed = new Set<string>();
   const active = new Set<string>();
+  const selected = new Map<string, CapabilityPack>();
 
-  async function visit(pack: CapabilityPack): Promise<void> {
+  function select(pack: CapabilityPack): CapabilityPack {
+    const existing = selected.get(pack.id);
+    if (!existing) {
+      selected.set(pack.id, pack);
+      return pack;
+    }
+    if (existing.root !== pack.root || existing.version !== pack.version) {
+      throw new PackResolutionError(
+        "VERSION_MISMATCH",
+        `pack ${pack.id} conflicts with the selected root or version`,
+      );
+    }
+    return existing;
+  }
+
+  async function visit(incomingPack: CapabilityPack): Promise<void> {
+    const pack = select(incomingPack);
     if (completed.has(pack.id)) return;
     if (active.has(pack.id)) {
       throw new PackResolutionError("CYCLE", `dependency cycle includes ${pack.id}`);
@@ -104,9 +130,9 @@ export async function resolvePacks(
         if (dependencyPath === undefined) {
           throw new PackResolutionError("MISSING_DEPENDENCY", `${pack.id} requires ${dependencyId}`);
         }
-        const dependency = await loadPack(
+        const dependency = select(await loadPack(
           await registryPackPath(dependencyPath, lexicalRegistryRoot, canonicalRegistryRoot),
-        );
+        ));
         if (dependency.id !== dependencyId) {
           throw new PackResolutionError("MISSING_DEPENDENCY", `registry entry ${dependencyId} contains ${dependency.id}`);
         }

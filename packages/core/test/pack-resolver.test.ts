@@ -9,6 +9,7 @@ interface PackFixture {
   id: string;
   version: string;
   dependencies?: Record<string, string>;
+  directory?: string;
 }
 
 const agent = `id: builder
@@ -22,8 +23,23 @@ risk:
   forbidden: [production-deploy]
 `;
 
+const caretCases = [
+  { range: "^1.2.3", version: "1.2.3", accepts: true },
+  { range: "^1.2.3", version: "1.9.0", accepts: true },
+  { range: "^1.2.3", version: "1.2.2", accepts: false },
+  { range: "^1.2.3", version: "2.0.0", accepts: false },
+  { range: "^0.2.3", version: "0.2.3", accepts: true },
+  { range: "^0.2.3", version: "0.2.4", accepts: true },
+  { range: "^0.2.3", version: "0.2.2", accepts: false },
+  { range: "^0.2.3", version: "0.3.0", accepts: false },
+  { range: "^0.0.3", version: "0.0.3", accepts: true },
+  { range: "^0.0.3", version: "0.0.2", accepts: false },
+  { range: "^0.0.3", version: "0.0.4", accepts: false },
+  { range: "^9007199254740993.2.3", version: "9007199254740993.2.3", accepts: true },
+] as const;
+
 async function createPack(root: string, fixture: PackFixture): Promise<string> {
-  const packRoot = join(root, fixture.id);
+  const packRoot = join(root, fixture.directory ?? fixture.id);
   await mkdir(packRoot, { recursive: true });
   const dependencies = fixture.dependencies
     ? `dependencies:\n${Object.entries(fixture.dependencies).map(([id, range]) => `  ${id}: ${range}`).join("\n")}\n`
@@ -221,6 +237,145 @@ test("deduplicates repeated entry roots", async () => {
       const result = await resolvePacks([api, api], new Map(), registryRoot);
       assert.deepEqual(result.ordered.map((pack) => pack.id), ["example.api"]);
       assert.deepEqual(result.lock.packs, [{ id: "example.api", version: "1.0.0", source: "local" }]);
+    },
+  );
+});
+
+test("rejects duplicate pack IDs from distinct canonical roots", async () => {
+  // Break caught: deduplicating by ID alone makes the chosen pack depend on entry-root order.
+  await withFixtures(
+    async (registryRoot) => {
+      await createPack(registryRoot, { id: "example.shared", version: "1.0.0", directory: "shared-a" });
+      await createPack(registryRoot, { id: "example.shared", version: "1.0.0", directory: "shared-b" });
+    },
+    async (registryRoot) => {
+      await assert.rejects(
+        resolvePacks(
+          [join(registryRoot, "shared-a"), join(registryRoot, "shared-b")],
+          new Map(),
+          registryRoot,
+        ),
+        (error: unknown) => error instanceof PackResolutionError && error.code === "VERSION_MISMATCH",
+      );
+    },
+  );
+});
+
+test("rejects a registry version that conflicts with an earlier entry root", async () => {
+  // Break caught: a dependency must not validate against a registry pack that differs from the selected entry pack.
+  await withFixtures(
+    async (registryRoot) => {
+      await createPack(registryRoot, { id: "example.shared", version: "1.0.0", directory: "entry-shared" });
+      await createPack(registryRoot, { id: "example.shared", version: "1.2.0", directory: "registry-shared" });
+      await createPack(registryRoot, {
+        id: "example.consumer",
+        version: "1.0.0",
+        dependencies: { "example.shared": "^1.0.0" },
+      });
+    },
+    async (registryRoot) => {
+      await assert.rejects(
+        resolvePacks(
+          [join(registryRoot, "entry-shared"), join(registryRoot, "example.consumer")],
+          new Map([["example.shared", join(registryRoot, "registry-shared")]]),
+          registryRoot,
+        ),
+        (error: unknown) => error instanceof PackResolutionError && error.code === "VERSION_MISMATCH",
+      );
+    },
+  );
+});
+
+test("rejects a duplicate ID with a hidden dependency graph", async () => {
+  // Break caught: accepting a second root with the same ID can silently retain dependencies absent from the registry pack.
+  await withFixtures(
+    async (registryRoot) => {
+      await createPack(registryRoot, { id: "example.hidden", version: "1.0.0" });
+      await createPack(registryRoot, {
+        id: "example.shared",
+        version: "1.0.0",
+        directory: "entry-shared",
+        dependencies: { "example.hidden": "1.0.0" },
+      });
+      await createPack(registryRoot, { id: "example.shared", version: "1.0.0", directory: "registry-shared" });
+      await createPack(registryRoot, {
+        id: "example.consumer",
+        version: "1.0.0",
+        dependencies: { "example.shared": "1.0.0" },
+      });
+    },
+    async (registryRoot) => {
+      await assert.rejects(
+        resolvePacks(
+          [join(registryRoot, "entry-shared"), join(registryRoot, "example.consumer")],
+          new Map([
+            ["example.hidden", join(registryRoot, "example.hidden")],
+            ["example.shared", join(registryRoot, "registry-shared")],
+          ]),
+          registryRoot,
+        ),
+        (error: unknown) => error instanceof PackResolutionError && error.code === "VERSION_MISMATCH",
+      );
+    },
+  );
+});
+
+test("checks every dependency range against the selected pack", async () => {
+  // Break caught: a range cannot be satisfied by a replacement candidate when a different selected pack will execute.
+  await withFixtures(
+    async (registryRoot) => {
+      await createPack(registryRoot, { id: "example.shared", version: "1.0.0", directory: "entry-shared" });
+      await createPack(registryRoot, { id: "example.shared", version: "2.0.0", directory: "registry-shared" });
+      await createPack(registryRoot, {
+        id: "example.consumer",
+        version: "1.0.0",
+        dependencies: { "example.shared": "^2.0.0" },
+      });
+    },
+    async (registryRoot) => {
+      await assert.rejects(
+        resolvePacks(
+          [join(registryRoot, "entry-shared"), join(registryRoot, "example.consumer")],
+          new Map([["example.shared", join(registryRoot, "registry-shared")]]),
+          registryRoot,
+        ),
+        (error: unknown) => error instanceof PackResolutionError && error.code === "VERSION_MISMATCH",
+      );
+    },
+  );
+});
+
+test("evaluates caret range boundaries without losing numeric precision", async () => {
+  // Break caught: numeric coercion rounds schema-valid version components above Number.MAX_SAFE_INTEGER.
+  await withFixtures(
+    async (registryRoot) => {
+      for (const [index, item] of caretCases.entries()) {
+        const dependencyId = `example.dependency-${index}`;
+        await createPack(registryRoot, { id: dependencyId, version: item.version });
+        await createPack(registryRoot, {
+          id: `example.consumer-${index}`,
+          version: "1.0.0",
+          dependencies: { [dependencyId]: item.range },
+        });
+      }
+    },
+    async (registryRoot) => {
+      for (const [index, item] of caretCases.entries()) {
+        const dependencyId = `example.dependency-${index}`;
+        const outcome = resolvePacks(
+          [join(registryRoot, `example.consumer-${index}`)],
+          new Map([[dependencyId, join(registryRoot, dependencyId)]]),
+          registryRoot,
+        );
+        if (item.accepts) {
+          await outcome;
+        } else {
+          await assert.rejects(
+            outcome,
+            (error: unknown) => error instanceof PackResolutionError && error.code === "VERSION_MISMATCH",
+          );
+        }
+      }
     },
   );
 });
