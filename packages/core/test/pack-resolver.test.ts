@@ -320,12 +320,36 @@ test("rejects a duplicate ID with a hidden dependency graph", async () => {
   );
 });
 
-test("checks every dependency range against the selected pack", async () => {
-  // Break caught: a range cannot be satisfied by a replacement candidate when a different selected pack will execute.
+test("reports a mismatched registry manifest as a missing dependency before selection conflicts", async () => {
+  // Break caught: a registry key must be validated before a pre-selected wrong manifest can change the error code.
   await withFixtures(
     async (registryRoot) => {
-      await createPack(registryRoot, { id: "example.shared", version: "1.0.0", directory: "entry-shared" });
-      await createPack(registryRoot, { id: "example.shared", version: "2.0.0", directory: "registry-shared" });
+      await createPack(registryRoot, { id: "example.selected", version: "1.0.0", directory: "entry-selected" });
+      await createPack(registryRoot, { id: "example.selected", version: "1.0.0", directory: "registry-selected" });
+      await createPack(registryRoot, {
+        id: "example.consumer",
+        version: "1.0.0",
+        dependencies: { "example.requested": "1.0.0" },
+      });
+    },
+    async (registryRoot) => {
+      await assert.rejects(
+        resolvePacks(
+          [join(registryRoot, "entry-selected"), join(registryRoot, "example.consumer")],
+          new Map([["example.requested", join(registryRoot, "registry-selected")]]),
+          registryRoot,
+        ),
+        (error: unknown) => error instanceof PackResolutionError && error.code === "MISSING_DEPENDENCY",
+      );
+    },
+  );
+});
+
+test("checks every dependency range against the selected pack", async () => {
+  // Break caught: an already selected canonical pack must still be checked against each dependent's range.
+  await withFixtures(
+    async (registryRoot) => {
+      await createPack(registryRoot, { id: "example.shared", version: "1.0.0" });
       await createPack(registryRoot, {
         id: "example.consumer",
         version: "1.0.0",
@@ -335,11 +359,15 @@ test("checks every dependency range against the selected pack", async () => {
     async (registryRoot) => {
       await assert.rejects(
         resolvePacks(
-          [join(registryRoot, "entry-shared"), join(registryRoot, "example.consumer")],
-          new Map([["example.shared", join(registryRoot, "registry-shared")]]),
+          [join(registryRoot, "example.shared"), join(registryRoot, "example.consumer")],
+          new Map([["example.shared", join(registryRoot, "example.shared")]]),
           registryRoot,
         ),
-        (error: unknown) => error instanceof PackResolutionError && error.code === "VERSION_MISMATCH",
+        (error: unknown) => (
+          error instanceof PackResolutionError
+          && error.code === "VERSION_MISMATCH"
+          && error.message.includes("example.consumer requires example.shared@^2.0.0")
+        ),
       );
     },
   );

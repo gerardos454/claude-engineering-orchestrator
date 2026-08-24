@@ -130,12 +130,13 @@ export async function resolvePacks(
         if (dependencyPath === undefined) {
           throw new PackResolutionError("MISSING_DEPENDENCY", `${pack.id} requires ${dependencyId}`);
         }
-        const dependency = select(await loadPack(
+        const incomingDependency = await loadPack(
           await registryPackPath(dependencyPath, lexicalRegistryRoot, canonicalRegistryRoot),
-        ));
-        if (dependency.id !== dependencyId) {
-          throw new PackResolutionError("MISSING_DEPENDENCY", `registry entry ${dependencyId} contains ${dependency.id}`);
+        );
+        if (incomingDependency.id !== dependencyId) {
+          throw new PackResolutionError("MISSING_DEPENDENCY", `registry entry ${dependencyId} contains ${incomingDependency.id}`);
         }
+        const dependency = select(incomingDependency);
         if (!satisfies(range, dependency.version)) {
           throw new PackResolutionError(
             "VERSION_MISMATCH",
